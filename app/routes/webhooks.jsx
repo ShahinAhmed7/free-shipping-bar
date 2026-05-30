@@ -24,6 +24,10 @@ export const action = async ({ request }) => {
         await db.shopSettings.deleteMany({ where: { shop } }).catch(() => {});
         break;
 
+      case "ORDERS_REDACT":
+        // No order PII stored
+        break;
+
       default:
         break;
     }
