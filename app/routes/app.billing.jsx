@@ -37,6 +37,9 @@ export default function BillingPage() {
               Start 7-Day Free Trial
             </button>
           </form>
+          <p style={{ textAlign: "center", fontSize: "12px", color: "#888", marginTop: "12px" }}>
+            After approving, click "Home" in the sidebar to return to the app.
+          </p>
         </div>
       </div>
     </div>
