@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useFetcher } from "react-router";
+import { useFetcher, json } from "react-router";
 import { authenticate } from "../shopify.server";
 
 export async function loader({ request }) {
@@ -18,7 +18,7 @@ export async function action({ request }) {
     returnUrl: returnUrl,
   });
 
-  return { billingUrl };
+  return json({ billingUrl });
 }
 
 export default function BillingPage() {
