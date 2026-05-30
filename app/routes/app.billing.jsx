@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useFetcher } from "react-router";
+import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 
 export async function loader({ request }) {
@@ -23,13 +24,14 @@ export async function action({ request }) {
 
 export default function BillingPage() {
   const fetcher = useFetcher();
+  const shopify = useAppBridge();
   const isLoading = fetcher.state !== "idle";
 
   useEffect(() => {
     if (fetcher.data?.billingUrl) {
-      window.top.location.href = fetcher.data.billingUrl;
+      shopify.open(fetcher.data.billingUrl, "_top");
     }
-  }, [fetcher.data]);
+  }, [fetcher.data, shopify]);
 
   return (
     <div style={{ padding: "2rem", fontFamily: "sans-serif", maxWidth: "800px", margin: "0 auto" }}>
