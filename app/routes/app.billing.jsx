@@ -1,4 +1,4 @@
-import { useFetcher } from "react-router";
+import { useFetcher, redirect } from "react-router";
 import { authenticate } from "../shopify.server";
 export async function loader({ request }) {
   await authenticate.admin(request);
@@ -9,12 +9,12 @@ export async function action({ request }) {
 
   const returnUrl = `https://${session.shop}/admin/apps/free-shipping-bar`;
 
-  await billing.request({
+  const billingUrl = await billing.request({
     plan: "Pro Plan",
     isTest: true,
     returnUrl: returnUrl,
   });
-  return null;
+  return redirect(billingUrl);
 }
 export default function BillingPage() {
   const fetcher = useFetcher();
