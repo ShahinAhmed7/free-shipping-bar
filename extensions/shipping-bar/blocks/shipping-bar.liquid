@@ -1,0 +1,68 @@
+{% assign threshold = block.settings.threshold | default: 7500 %}
+{% assign cart_total = cart.total_price %}
+{% assign remaining = threshold | minus: cart_total %}
+{% assign progress = cart_total | times: 100 | divided_by: threshold %}
+{% if progress > 100 %}{% assign progress = 100 %}{% endif %}
+
+<div id="shipping-bar-root" class="shipping-bar" {{ block.shopify_attributes }}>
+  {% if cart_total >= threshold %}
+    <p class="shipping-bar__message shipping-bar__message--success">
+      🎉 You've unlocked free shipping!
+    </p>
+  {% else %}
+    <p class="shipping-bar__message">
+      Add <strong>{{ remaining | money }}</strong> more for free shipping
+    </p>
+  {% endif %}
+
+  <div class="shipping-bar__track" role="progressbar" aria-valuenow="{{ progress }}" aria-valuemin="0" aria-valuemax="100">
+    <div class="shipping-bar__fill" style="width: {{ progress }}%;"></div>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Free Shipping Bar",
+  "target": "section",
+  "settings": [
+    {
+      "type": "number",
+      "id": "threshold",
+      "label": "Free shipping threshold (cents)",
+      "default": 7500,
+      "info": "Amount in cents. 7500 = $75.00"
+    }
+  ]
+}
+{% endschema %}
+
+{% stylesheet %}
+.shipping-bar {
+  padding: 12px 16px;
+  text-align: center;
+}
+
+.shipping-bar__message {
+  font-size: 14px;
+  margin: 0 0 10px;
+  color: currentColor;
+}
+
+.shipping-bar__message--success {
+  font-weight: 500;
+}
+
+.shipping-bar__track {
+  height: 8px;
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.shipping-bar__fill {
+  height: 100%;
+  background-color: #1D9E75;
+  border-radius: 99px;
+  transition: width 0.4s ease;
+}
+{% endstylesheet %}

@@ -1,0 +1,37 @@
+.shipping-bar {
+  width: 100%;
+  padding: 12px 16px;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+.shipping-bar__message {
+  text-align: center;
+  font-size: 13px;
+  color: #18181b;
+  margin: 0 0 10px;
+}
+
+.shipping-bar__track {
+  height: 10px;
+  background: #e4e4e7;
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.shipping-bar__fill {
+  height: 100%;
+  background: #1D9E75;
+  border-radius: 99px;
+  transition: width 0.4s ease;
+}
+
+.shipping-bar--complete .shipping-bar__fill {
+  background: linear-gradient(90deg, #1D9E75, #378ADD);
+  width: 100%;
+}
+
+.shipping-bar--complete .shipping-bar__message {
+  color: #0F6E56;
+  font-weight: 500;
+}

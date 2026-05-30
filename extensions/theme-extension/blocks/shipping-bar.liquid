@@ -1,0 +1,44 @@
+{% schema %}
+{
+  "name": "Free Shipping Bar",
+  "target": "section",
+  "settings": [
+    {
+      "type": "number",
+      "id": "threshold",
+      "label": "Free shipping threshold ($)",
+      "default": 75
+    },
+    {
+      "type": "text",
+      "id": "message",
+      "label": "Progress message",
+      "default": "Add {amount} more for free shipping!"
+    },
+    {
+      "type": "text",
+      "id": "success_message",
+      "label": "Success message",
+      "default": "You've unlocked free shipping!"
+    },
+    {
+      "type": "color",
+      "id": "bar_color",
+      "label": "Bar color",
+      "default": "#1D9E75"
+    }
+  ]
+}
+{% endschema %}
+<div class="shipping-bar"
+  data-threshold="{{ block.settings.threshold | times: 100 }}"
+  data-message="{{ block.settings.message }}"
+  data-success="{{ block.settings.success_message }}"
+  data-color="{{ block.settings.bar_color }}">
+  <div class="shipping-bar__message"></div>
+  <div class="shipping-bar__track">
+    <div class="shipping-bar__fill"></div>
+  </div>
+</div>
+{{ 'shipping-bar.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'shipping-bar.js' | asset_url }}" defer></script>
