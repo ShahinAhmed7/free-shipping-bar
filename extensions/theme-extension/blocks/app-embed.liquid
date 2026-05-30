@@ -3,9 +3,9 @@
 {{ 'shipping-bar.css' | asset_url | stylesheet_tag }}
 <script>
   window.freeShippingThreshold = {{ block.settings.threshold | default: 5000 }};
-  window.freeShippingMessage = {{ block.settings.progress_message | default: "Add {amount} more for free shipping!" | json }};
-  window.freeShippingSuccessMessage = {{ block.settings.success_message | default: "You've unlocked free shipping! 🎉" | json }};
-  window.freeShippingBarColor = {{ block.settings.bar_color | default: "#008060" | json }};
+  window.freeShippingMessage = {{ block.settings.progress_message | json }};
+  window.freeShippingSuccessMessage = {{ block.settings.success_message | json }};
+  window.freeShippingBarColor = {{ block.settings.bar_color | json }};
 </script>
 {{ 'shipping-bar.js' | asset_url | script_tag }}
 {% schema %}
@@ -23,7 +23,7 @@
       "type": "text",
       "id": "progress_message",
       "label": "Progress message",
-      "default": "Add {amount} more for free shipping!"
+      "default": "Add [amount] more for free shipping!"
     },
     {
       "type": "text",
