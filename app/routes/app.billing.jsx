@@ -13,14 +13,16 @@ export async function action({ request }) {
     isTest: true,
     returnUrl: returnUrl,
   });
-  return Response.json({ billingUrl });
+  return new Response(JSON.stringify({ billingUrl }), {
+    headers: { "Content-Type": "application/json" },
+  });
 }
 export default function BillingPage() {
   const fetcher = useFetcher();
   const isLoading = fetcher.state !== "idle";
   useEffect(() => {
     if (fetcher.data?.billingUrl) {
-      open(fetcher.data.billingUrl, "_top");
+      window.top.location.href = fetcher.data.billingUrl;
     }
   }, [fetcher.data]);
   return (
@@ -28,10 +30,7 @@ export default function BillingPage() {
       <h1 style={{ fontSize: "24px", marginBottom: "2rem" }}>Upgrade to Pro</h1>
       <div style={{ display: "flex", gap: "24px" }}>
         <div style={{ flex: 1, border: "1px solid #e0e0e0", borderRadius: "12px", padding: "24px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h2 style={{ fontSize: "18px", margin: 0 }}>Free Plan</h2>
-            <span style={{ background: "#e0f3ef", color: "#1a7f37", padding: "4px 10px", borderRadius: "20px", fontSize: "12px" }}>Current</span>
-          </div>
+          <h2 style={{ fontSize: "18px", margin: 0 }}>Free Plan</h2>
           <p style={{ fontSize: "28px", fontWeight: "bold", margin: "12px 0" }}>$0<span style={{ fontSize: "14px", fontWeight: "normal" }}>/month</span></p>
           <ul style={{ paddingLeft: "20px", color: "#444", lineHeight: "2" }}>
             <li>Basic progress bar</li>
@@ -40,10 +39,7 @@ export default function BillingPage() {
           </ul>
         </div>
         <div style={{ flex: 1, border: "2px solid #008060", borderRadius: "12px", padding: "24px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h2 style={{ fontSize: "18px", margin: 0 }}>Pro Plan</h2>
-            <span style={{ background: "#e3f7f5", color: "#008060", padding: "4px 10px", borderRadius: "20px", fontSize: "12px" }}>Recommended</span>
-          </div>
+          <h2 style={{ fontSize: "18px", margin: 0 }}>Pro Plan</h2>
           <p style={{ fontSize: "28px", fontWeight: "bold", margin: "12px 0" }}>$9.99<span style={{ fontSize: "14px", fontWeight: "normal" }}>/month</span></p>
           <ul style={{ paddingLeft: "20px", color: "#444", lineHeight: "2", marginBottom: "20px" }}>
             <li>Custom colors and messages</li>
