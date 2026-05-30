@@ -1,4 +1,3 @@
-import { redirect } from "react-router";
 import { authenticate } from "../shopify.server";
 export async function loader({ request }) {
   await authenticate.admin(request);
@@ -6,7 +5,8 @@ export async function loader({ request }) {
 }
 export async function action({ request }) {
   const { billing, session } = await authenticate.admin(request);
-  const returnUrl = `https://${session.shop}/admin/apps/free-shipping-bar/app`;
+
+  const returnUrl = `https://${session.shop}/admin/apps/free-shipping-bar/app?shop=${session.shop}&host=${Buffer.from(`${session.shop}/admin`).toString('base64')}`;
 
   await billing.request({
     plan: "Pro Plan",
@@ -14,7 +14,9 @@ export async function action({ request }) {
     returnUrl: returnUrl,
   });
 
-  return redirect(returnUrl);
+  return new Response(JSON.stringify({ billingUrl: returnUrl }), {
+    headers: { "Content-Type": "application/json" },
+  });
 }
 export default function BillingPage() {
   return (
