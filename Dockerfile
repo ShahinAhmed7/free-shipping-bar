@@ -16,3 +16,5 @@ COPY . .
 RUN npm run build
 
 CMD ["npm", "run", "docker-start"]
+
+# cache-bust: Sat May 30 12:17:40 +06 2026
