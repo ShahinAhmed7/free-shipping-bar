@@ -1,0 +1,42 @@
+{% comment %} Free Shipping Bar - App Embed {% endcomment %}
+<div id="free-shipping-bar-embed"></div>
+{{ 'shipping-bar.css' | asset_url | stylesheet_tag }}
+<script>
+  window.freeShippingThreshold = {{ block.settings.threshold | default: 5000 }};
+  window.freeShippingMessage = {{ block.settings.progress_message | default: "Add {amount} more for free shipping!" | json }};
+  window.freeShippingSuccessMessage = {{ block.settings.success_message | default: "You've unlocked free shipping! 🎉" | json }};
+  window.freeShippingBarColor = {{ block.settings.bar_color | default: "#008060" | json }};
+</script>
+{{ 'shipping-bar.js' | asset_url | script_tag }}
+{% schema %}
+{
+  "name": "Free Shipping Bar",
+  "target": "body",
+  "settings": [
+    {
+      "type": "number",
+      "id": "threshold",
+      "label": "Free shipping threshold (cents)",
+      "default": 5000
+    },
+    {
+      "type": "text",
+      "id": "progress_message",
+      "label": "Progress message",
+      "default": "Add {amount} more for free shipping!"
+    },
+    {
+      "type": "text",
+      "id": "success_message",
+      "label": "Success message",
+      "default": "You've unlocked free shipping! 🎉"
+    },
+    {
+      "type": "color",
+      "id": "bar_color",
+      "label": "Bar color",
+      "default": "#008060"
+    }
+  ]
+}
+{% endschema %}
