@@ -26,7 +26,7 @@ const shopify = shopifyApp({
   sessionStorage: new PrismaSessionStorage(prisma),
   distribution: AppDistribution.AppStore,
   future: {
-    expiringOfflineAccessTokens: true,
+    expiringOfflineAccessTokens: false,
   },
   billing: {
     "Pro Plan": {
