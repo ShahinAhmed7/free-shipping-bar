@@ -6,7 +6,7 @@ export async function loader({ request }) {
 }
 export async function action({ request }) {
   const { billing, session } = await authenticate.admin(request);
-  const returnUrl = `https://${session.shop}/admin/apps/free-shipping-bar`;
+  const returnUrl = `https://${session.shop}/admin/apps/free-shipping-bar/app`;
 
   await billing.request({
     plan: "Pro Plan",
