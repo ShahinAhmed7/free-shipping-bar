@@ -7,7 +7,7 @@
   window.freeShippingSuccessMessage = {{ block.settings.success_message | json }};
   window.freeShippingBarColor = {{ block.settings.bar_color | json }};
 </script>
-{{ 'shipping-bar.js' | asset_url | script_tag }}
+<script src="{{ 'shipping-bar.js' | asset_url }}" defer></script>
 {% schema %}
 {
   "name": "Free Shipping Bar",
