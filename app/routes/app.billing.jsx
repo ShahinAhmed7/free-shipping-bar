@@ -1,9 +1,12 @@
-import { useFetcher, redirect } from "react-router";
+import { useEffect } from "react";
+import { useFetcher } from "react-router";
 import { authenticate } from "../shopify.server";
+
 export async function loader({ request }) {
   await authenticate.admin(request);
   return { hasProPlan: false };
 }
+
 export async function action({ request }) {
   const { billing, session } = await authenticate.admin(request);
 
@@ -14,11 +17,20 @@ export async function action({ request }) {
     isTest: true,
     returnUrl: returnUrl,
   });
-  return redirect(billingUrl);
+
+  return { billingUrl };
 }
+
 export default function BillingPage() {
   const fetcher = useFetcher();
   const isLoading = fetcher.state !== "idle";
+
+  useEffect(() => {
+    if (fetcher.data?.billingUrl) {
+      window.top.location.href = fetcher.data.billingUrl;
+    }
+  }, [fetcher.data]);
+
   return (
     <div style={{ padding: "2rem", fontFamily: "sans-serif", maxWidth: "800px", margin: "0 auto" }}>
       <h1 style={{ fontSize: "24px", marginBottom: "2rem" }}>Upgrade to Pro</h1>
@@ -52,9 +64,9 @@ export default function BillingPage() {
             <button
               type="submit"
               disabled={isLoading}
-              style={{ width: "100%", padding: "12px", background: "#008060", color: "white", border: "none", borderRadius: "8px", fontSize: "16px", fontWeight: 600, cursor: "pointer" }}
+              style={{ width: "100%", padding: "12px", background: "#008060", color: "white", border: "none", borderRadius: "8px", fontSize: "16px", fontWeight: 600, cursor: isLoading ? "not-allowed" : "pointer" }}
             >
-              {isLoading ? "Loading..." : "Start 7-Day Free Trial"}
+              {isLoading ? "Redirecting..." : "Start 7-Day Free Trial"}
             </button>
           </fetcher.Form>
         </div>
