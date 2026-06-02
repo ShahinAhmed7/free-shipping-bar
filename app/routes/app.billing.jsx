@@ -33,6 +33,101 @@ async function getBillingStatus(billing) {
   };
 }
 
+function topRedirectResponse(url) {
+  const safeUrl = JSON.stringify(url);
+
+  return new Response(
+    `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="referrer" content="origin" />
+    <script>
+      window.top.location.href = ${safeUrl};
+    </script>
+  </head>
+  <body>
+    <p>Redirecting to Shopify billing...</p>
+    <p><a href=${safeUrl} target="_top">Continue to Shopify billing</a></p>
+  </body>
+</html>`,
+    {
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+      },
+    },
+  );
+}
+
+async function createProSubscription(admin) {
+  const response = await admin.graphql(
+    `#graphql
+      mutation AppSubscriptionCreate(
+        $name: String!
+        $returnUrl: URL!
+        $test: Boolean
+        $trialDays: Int
+        $lineItems: [AppSubscriptionLineItemInput!]!
+      ) {
+        appSubscriptionCreate(
+          name: $name
+          returnUrl: $returnUrl
+          test: $test
+          trialDays: $trialDays
+          replacementBehavior: APPLY_IMMEDIATELY
+          lineItems: $lineItems
+        ) {
+          confirmationUrl
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `,
+    {
+      variables: {
+        name: PRO_PLAN_NAME,
+        returnUrl: `${getAppUrl()}/app/billing-success`,
+        test: isBillingTestMode(),
+        trialDays: 7,
+        lineItems: [
+          {
+            plan: {
+              appRecurringPricingDetails: {
+                interval: "EVERY_30_DAYS",
+                price: {
+                  amount: 9.99,
+                  currencyCode: "USD",
+                },
+              },
+            },
+          },
+        ],
+      },
+    },
+  );
+
+  const payload = await response.json();
+  const billingResult = payload.data?.appSubscriptionCreate;
+  const userErrors = billingResult?.userErrors || [];
+
+  if (payload.errors?.length || userErrors.length || !billingResult?.confirmationUrl) {
+    return {
+      confirmationUrl: null,
+      error:
+        userErrors.map((error) => error.message).join(", ") ||
+        payload.errors?.map((error) => error.message).join(", ") ||
+        "Unable to create Shopify billing confirmation URL.",
+    };
+  }
+
+  return {
+    confirmationUrl: billingResult.confirmationUrl,
+    error: null,
+  };
+}
+
 export async function loader({ request }) {
   const { billing, session } = await authenticate.admin(request);
   const { hasProPlan, activeSubscription } = await getBillingStatus(billing);
@@ -51,16 +146,18 @@ export async function loader({ request }) {
 }
 
 export async function action({ request }) {
-  const { billing } = await authenticate.admin(request);
+  const { admin, billing } = await authenticate.admin(request);
   const formData = await request.formData();
   const intent = formData.get("intent");
 
   if (intent === "upgrade") {
-    return billing.request({
-      plan: PRO_PLAN_NAME,
-      isTest: isBillingTestMode(),
-      returnUrl: `${getAppUrl()}/app/billing-success`,
-    });
+    const { confirmationUrl, error } = await createProSubscription(admin);
+
+    if (error) {
+      return redirect(`/app/billing?status=error&message=${encodeURIComponent(error)}`);
+    }
+
+    return topRedirectResponse(confirmationUrl);
   }
 
   if (intent === "downgrade") {
@@ -84,6 +181,7 @@ export default function BillingPage() {
   const { planName, hasProPlan, subscriptionId, isTest, billingAction } = useLoaderData();
   const [searchParams] = useSearchParams();
   const status = searchParams.get("status");
+  const message = searchParams.get("message");
 
   return (
     <main style={styles.page}>
@@ -102,6 +200,12 @@ export default function BillingPage() {
 
       {status === "downgraded" ? (
         <div style={styles.successBox}>Free plan is active.</div>
+      ) : null}
+
+      {status === "error" ? (
+        <div style={styles.errorBox}>
+          {message || "Shopify billing could not be started. Please try again."}
+        </div>
       ) : null}
 
       <section style={styles.grid}>
@@ -197,6 +301,14 @@ const styles = {
     border: "1px solid #9de0c5",
     borderRadius: "8px",
     color: "#005c3f",
+    marginBottom: "1rem",
+    padding: "12px 16px",
+  },
+  errorBox: {
+    background: "#fff4f4",
+    border: "1px solid #ffd0d0",
+    borderRadius: "8px",
+    color: "#8a0000",
     marginBottom: "1rem",
     padding: "12px 16px",
   },
