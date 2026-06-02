@@ -103,6 +103,18 @@ async function createProSubscription(admin) {
   };
 }
 
+function extractRedirectUrl(html) {
+  const windowOpenMatch = html.match(/window\.open\((".*?"),\s*"_top"\)/);
+
+  if (windowOpenMatch?.[1]) {
+    return JSON.parse(windowOpenMatch[1]);
+  }
+
+  const hrefMatch = html.match(/href="(https?:\/\/[^"]+)"/);
+
+  return hrefMatch?.[1] || "";
+}
+
 export async function loader({ request }) {
   const { billing, session } = await authenticate.admin(request);
   const { hasProPlan, activeSubscription } = await getBillingStatus(billing);
@@ -173,7 +185,10 @@ export default function BillingPage() {
         method: "POST",
         body,
       });
-      const result = await response.json();
+      const contentType = response.headers.get("content-type") || "";
+      const result = contentType.includes("application/json")
+        ? await response.json()
+        : { confirmationUrl: extractRedirectUrl(await response.text()) };
 
       if (!response.ok || result.error || !result.confirmationUrl) {
         throw new Error(result.error || "Shopify billing could not be started.");
