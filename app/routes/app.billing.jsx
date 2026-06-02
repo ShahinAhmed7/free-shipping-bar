@@ -1,47 +1,264 @@
-import { authenticate } from "../shopify.server";
+/* global globalThis:readonly */
+import { redirect, useLoaderData, useSearchParams } from "react-router";
+import { authenticate, PRO_PLAN_NAME } from "../shopify.server";
+
+const DEFAULT_APP_URL = "https://free-shipping-bar-production-ffdd.up.railway.app";
+
+function getAppUrl() {
+  const serverProcess = globalThis.process;
+
+  return serverProcess
+    ? serverProcess.env.SHOPIFY_APP_URL || DEFAULT_APP_URL
+    : DEFAULT_APP_URL;
+}
+
+function isBillingTestMode() {
+  const serverProcess = globalThis.process;
+
+  return serverProcess?.env.SHOPIFY_BILLING_TEST === "true";
+}
+
+async function getBillingStatus(billing) {
+  const isTest = isBillingTestMode();
+  const billingCheck = await billing.check({
+    plans: [PRO_PLAN_NAME],
+    isTest,
+  });
+
+  const activeSubscription = billingCheck.appSubscriptions?.[0] || null;
+
+  return {
+    hasProPlan: Boolean(activeSubscription),
+    activeSubscription,
+  };
+}
+
 export async function loader({ request }) {
-  await authenticate.admin(request);
-  return {};
+  const { billing } = await authenticate.admin(request);
+  const { hasProPlan, activeSubscription } = await getBillingStatus(billing);
+
+  return {
+    planName: hasProPlan ? PRO_PLAN_NAME : "Free Plan",
+    hasProPlan,
+    subscriptionId: activeSubscription?.id || null,
+    isTest: isBillingTestMode(),
+  };
 }
+
 export async function action({ request }) {
-  const { billing, session } = await authenticate.admin(request);
+  const { billing } = await authenticate.admin(request);
+  const formData = await request.formData();
+  const intent = formData.get("intent");
 
-  const returnUrl = `https://free-shipping-bar-production-ffdd.up.railway.app/auth?shop=${session.shop}`;
+  if (intent === "upgrade") {
+    return billing.request({
+      plan: PRO_PLAN_NAME,
+      isTest: isBillingTestMode(),
+      returnUrl: `${getAppUrl()}/app/billing-success`,
+    });
+  }
 
-  await billing.request({
-    plan: "Pro Plan",
-    isTest: true,
-    returnUrl: returnUrl,
-  });
+  if (intent === "downgrade") {
+    const { activeSubscription } = await getBillingStatus(billing);
 
-  return new Response(JSON.stringify({ billingUrl: returnUrl }), {
-    headers: { "Content-Type": "application/json" },
-  });
+    if (activeSubscription?.id) {
+      await billing.cancel({
+        subscriptionId: activeSubscription.id,
+        isTest: isBillingTestMode(),
+        prorate: true,
+      });
+    }
+
+    return redirect("/app/billing?status=downgraded");
+  }
+
+  return redirect("/app/billing");
 }
+
 export default function BillingPage() {
+  const { planName, hasProPlan, subscriptionId, isTest } = useLoaderData();
+  const [searchParams] = useSearchParams();
+  const status = searchParams.get("status");
+
   return (
-    <div style={{ padding: "2rem", fontFamily: "sans-serif", maxWidth: "800px", margin: "0 auto" }}>
-      <h1 style={{ fontSize: "24px", marginBottom: "2rem" }}>Upgrade to Pro</h1>
-      <div style={{ display: "flex", gap: "24px" }}>
-        <div style={{ flex: 1, border: "1px solid #e0e0e0", borderRadius: "12px", padding: "24px" }}>
-          <h2>Free Plan</h2>
-          <p style={{ fontSize: "28px", fontWeight: "bold" }}>$0/month</p>
-          <ul><li>Basic progress bar</li><li>1 threshold</li><li>Default styling</li></ul>
-        </div>
-        <div style={{ flex: 1, border: "2px solid #008060", borderRadius: "12px", padding: "24px" }}>
-          <h2>Pro Plan</h2>
-          <p style={{ fontSize: "28px", fontWeight: "bold" }}>$9.99/month</p>
-          <ul><li>Custom colors and messages</li><li>Multiple thresholds</li><li>Emoji celebrations</li><li>7-day free trial</li></ul>
-          <form method="post">
-            <button type="submit" style={{ width: "100%", padding: "12px", background: "#008060", color: "white", border: "none", borderRadius: "8px", fontSize: "16px", cursor: "pointer" }}>
-              Start 7-Day Free Trial
-            </button>
-          </form>
-          <p style={{ textAlign: "center", fontSize: "12px", color: "#888", marginTop: "12px" }}>
-            After approving, click "Home" in the sidebar to return to the app.
-          </p>
-        </div>
-      </div>
-    </div>
+    <main style={styles.page}>
+      <section style={styles.header}>
+        <p style={styles.eyebrow}>Current plan</p>
+        <h1 style={styles.heading}>{planName}</h1>
+        <p style={styles.copy}>
+          Manage the free shipping bar plan through Shopify billing.
+        </p>
+        {isTest ? <p style={styles.testBadge}>Test billing mode</p> : null}
+      </section>
+
+      {status === "approved" ? (
+        <div style={styles.successBox}>Pro plan is active.</div>
+      ) : null}
+
+      {status === "downgraded" ? (
+        <div style={styles.successBox}>Free plan is active.</div>
+      ) : null}
+
+      <section style={styles.grid}>
+        <article style={styles.card}>
+          <div>
+            <h2 style={styles.cardTitle}>Free Plan</h2>
+            <p style={styles.price}>$0/month</p>
+            <ul style={styles.list}>
+              <li>Basic progress bar</li>
+              <li>1 threshold</li>
+              <li>Default styling</li>
+            </ul>
+          </div>
+
+          {hasProPlan ? (
+            <form method="post">
+              <input type="hidden" name="intent" value="downgrade" />
+              <button type="submit" style={styles.secondaryButton}>
+                Downgrade to Free
+              </button>
+            </form>
+          ) : (
+            <p style={styles.activeLabel}>Active</p>
+          )}
+        </article>
+
+        <article style={{ ...styles.card, ...styles.highlightedCard }}>
+          <div>
+            <h2 style={styles.cardTitle}>Pro Plan</h2>
+            <p style={styles.price}>$9.99/month</p>
+            <ul style={styles.list}>
+              <li>Custom colors and messages</li>
+              <li>Multiple thresholds</li>
+              <li>Emoji celebrations</li>
+              <li>7-day free trial</li>
+            </ul>
+          </div>
+
+          {hasProPlan ? (
+            <p style={styles.activeLabel}>Active</p>
+          ) : (
+            <form method="post">
+              <input type="hidden" name="intent" value="upgrade" />
+              <button type="submit" style={styles.primaryButton}>
+                Start 7-Day Free Trial
+              </button>
+            </form>
+          )}
+        </article>
+      </section>
+
+      {subscriptionId ? (
+        <p style={styles.subscriptionNote}>Subscription ID: {subscriptionId}</p>
+      ) : null}
+    </main>
   );
 }
+
+const styles = {
+  page: {
+    padding: "2rem",
+    fontFamily: "sans-serif",
+    maxWidth: "900px",
+    margin: "0 auto",
+  },
+  header: {
+    marginBottom: "1.5rem",
+  },
+  eyebrow: {
+    color: "#5c5f62",
+    fontSize: "14px",
+    margin: "0 0 4px",
+  },
+  heading: {
+    fontSize: "28px",
+    margin: "0 0 8px",
+  },
+  copy: {
+    color: "#5c5f62",
+    margin: "0",
+  },
+  testBadge: {
+    display: "inline-block",
+    marginTop: "12px",
+    padding: "4px 8px",
+    borderRadius: "6px",
+    background: "#fff4e5",
+    color: "#7c4a00",
+    fontSize: "13px",
+  },
+  successBox: {
+    background: "#eafaf3",
+    border: "1px solid #9de0c5",
+    borderRadius: "8px",
+    color: "#005c3f",
+    marginBottom: "1rem",
+    padding: "12px 16px",
+  },
+  grid: {
+    display: "grid",
+    gap: "24px",
+    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+  },
+  card: {
+    border: "1px solid #e0e0e0",
+    borderRadius: "8px",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "space-between",
+    minHeight: "340px",
+    padding: "24px",
+  },
+  highlightedCard: {
+    border: "2px solid #008060",
+  },
+  cardTitle: {
+    fontSize: "22px",
+    margin: "0 0 18px",
+  },
+  price: {
+    fontSize: "28px",
+    fontWeight: "bold",
+    margin: "0 0 20px",
+  },
+  list: {
+    lineHeight: "1.5",
+    margin: "0",
+    paddingLeft: "20px",
+  },
+  primaryButton: {
+    width: "100%",
+    padding: "12px",
+    background: "#008060",
+    color: "white",
+    border: "none",
+    borderRadius: "8px",
+    fontSize: "16px",
+    cursor: "pointer",
+  },
+  secondaryButton: {
+    width: "100%",
+    padding: "12px",
+    background: "white",
+    color: "#202223",
+    border: "1px solid #c9cccf",
+    borderRadius: "8px",
+    fontSize: "16px",
+    cursor: "pointer",
+  },
+  activeLabel: {
+    alignSelf: "flex-start",
+    background: "#eafaf3",
+    borderRadius: "6px",
+    color: "#005c3f",
+    fontWeight: "bold",
+    margin: "0",
+    padding: "8px 12px",
+  },
+  subscriptionNote: {
+    color: "#6d7175",
+    fontSize: "12px",
+    marginTop: "16px",
+    wordBreak: "break-all",
+  },
+};

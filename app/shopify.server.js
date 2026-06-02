@@ -9,6 +9,8 @@ import {
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import prisma from "./db.server";
 
+export const PRO_PLAN_NAME = "Pro Plan";
+
 export const FREE_PLAN = {
   Monthly: { amount: 0, currencyCode: "USD", interval: BillingInterval.Every30Days },
 };
@@ -48,7 +50,7 @@ const shopify = shopifyApp({
     expiringOfflineAccessTokens: true,
   },
   billing: {
-    "Pro Plan": {
+    [PRO_PLAN_NAME]: {
       lineItems: [
         {
           amount: 9.99,
