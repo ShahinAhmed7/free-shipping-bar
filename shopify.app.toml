@@ -20,8 +20,16 @@ api_version = "2025-07"
   topics = [ "app/uninstalled" ]
 
   [[webhooks.subscriptions]]
-  topics = ["customers/data_request", "customers/redact", "shop/redact"]
   uri = "/webhooks"
+  topics = [ "customers/data_request" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks"
+  topics = [ "customers/redact" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks"
+  topics = [ "shop/redact" ]
 
 
 [access_scopes]
