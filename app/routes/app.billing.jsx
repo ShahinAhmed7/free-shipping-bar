@@ -18,6 +18,12 @@ function isBillingTestMode() {
   return serverProcess?.env.SHOPIFY_BILLING_TEST === "true";
 }
 
+function getShopifyApiKey() {
+  const serverProcess = globalThis.process;
+
+  return serverProcess?.env.SHOPIFY_API_KEY || "";
+}
+
 async function getBillingStatus(billing) {
   const isTest = isBillingTestMode();
   const billingCheck = await billing.check({
@@ -35,6 +41,7 @@ async function getBillingStatus(billing) {
 
 function topRedirectResponse(url) {
   const safeUrl = JSON.stringify(url);
+  const safeApiKey = String(getShopifyApiKey()).replace(/"/g, "&quot;");
 
   return new Response(
     `<!doctype html>
@@ -42,8 +49,9 @@ function topRedirectResponse(url) {
   <head>
     <meta charset="utf-8" />
     <meta name="referrer" content="origin" />
+    <script data-api-key="${safeApiKey}" src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
     <script>
-      window.top.location.href = ${safeUrl};
+      window.open(${safeUrl}, "_top");
     </script>
   </head>
   <body>
