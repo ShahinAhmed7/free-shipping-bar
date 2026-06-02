@@ -34,14 +34,19 @@ async function getBillingStatus(billing) {
 }
 
 export async function loader({ request }) {
-  const { billing } = await authenticate.admin(request);
+  const { billing, session } = await authenticate.admin(request);
   const { hasProPlan, activeSubscription } = await getBillingStatus(billing);
+  const billingActionUrl = new URL(request.url);
+
+  billingActionUrl.searchParams.set("shop", session.shop);
+  billingActionUrl.searchParams.set("embedded", "1");
 
   return {
     planName: hasProPlan ? PRO_PLAN_NAME : "Free Plan",
     hasProPlan,
     subscriptionId: activeSubscription?.id || null,
     isTest: isBillingTestMode(),
+    billingAction: `${billingActionUrl.pathname}${billingActionUrl.search}`,
   };
 }
 
@@ -76,7 +81,7 @@ export async function action({ request }) {
 }
 
 export default function BillingPage() {
-  const { planName, hasProPlan, subscriptionId, isTest } = useLoaderData();
+  const { planName, hasProPlan, subscriptionId, isTest, billingAction } = useLoaderData();
   const [searchParams] = useSearchParams();
   const status = searchParams.get("status");
 
@@ -112,7 +117,7 @@ export default function BillingPage() {
           </div>
 
           {hasProPlan ? (
-            <form method="post">
+            <form method="post" action={billingAction}>
               <input type="hidden" name="intent" value="downgrade" />
               <button type="submit" style={styles.secondaryButton}>
                 Downgrade to Free
@@ -138,7 +143,7 @@ export default function BillingPage() {
           {hasProPlan ? (
             <p style={styles.activeLabel}>Active</p>
           ) : (
-            <form method="post">
+            <form method="post" action={billingAction}>
               <input type="hidden" name="intent" value="upgrade" />
               <button type="submit" style={styles.primaryButton}>
                 Start 7-Day Free Trial
