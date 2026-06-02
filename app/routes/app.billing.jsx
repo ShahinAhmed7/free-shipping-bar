@@ -1,5 +1,6 @@
 /* global globalThis:readonly */
 import { useState } from "react";
+import { useAppBridge } from "@shopify/app-bridge-react";
 import { redirect, useLoaderData, useSearchParams } from "react-router";
 import { authenticate, PRO_PLAN_NAME } from "../shopify.server";
 
@@ -167,6 +168,7 @@ export async function action({ request }) {
 export default function BillingPage() {
   const { planName, hasProPlan, subscriptionId, isTest, billingAction } = useLoaderData();
   const [searchParams] = useSearchParams();
+  const shopify = useAppBridge();
   const status = searchParams.get("status");
   const message = searchParams.get("message");
   const [upgradeState, setUpgradeState] = useState({
@@ -180,9 +182,13 @@ export default function BillingPage() {
     try {
       const body = new FormData();
       body.set("intent", "upgrade");
+      const token = await shopify.idToken();
 
       const response = await fetch(billingAction, {
         method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
         body,
       });
       const contentType = response.headers.get("content-type") || "";
