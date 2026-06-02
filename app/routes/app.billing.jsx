@@ -104,18 +104,6 @@ async function createProSubscription(admin) {
   };
 }
 
-function extractRedirectUrl(html) {
-  const windowOpenMatch = html.match(/window\.open\((".*?"),\s*"_top"\)/);
-
-  if (windowOpenMatch?.[1]) {
-    return JSON.parse(windowOpenMatch[1]);
-  }
-
-  const hrefMatch = html.match(/href="(https?:\/\/[^"]+)"/);
-
-  return hrefMatch?.[1] || "";
-}
-
 export async function loader({ request }) {
   const { billing, session } = await authenticate.admin(request);
   const { hasProPlan, activeSubscription } = await getBillingStatus(billing);
@@ -180,6 +168,8 @@ export default function BillingPage() {
     setUpgradeState({ loading: true, error: "" });
 
     try {
+      await shopify.ready;
+
       const body = new FormData();
       body.set("intent", "upgrade");
       const token = await shopify.idToken();
@@ -187,20 +177,38 @@ export default function BillingPage() {
       const response = await fetch(billingAction, {
         method: "POST",
         headers: {
+          Accept: "application/json",
           Authorization: `Bearer ${token}`,
         },
+        credentials: "include",
         body,
       });
       const contentType = response.headers.get("content-type") || "";
-      const result = contentType.includes("application/json")
-        ? await response.json()
-        : { confirmationUrl: extractRedirectUrl(await response.text()) };
+      const result = contentType.includes("application/json") ? await response.json() : null;
+
+      if (!result) {
+        const text = await response.text();
+        throw new Error(
+          `Expected JSON from billing route, received ${contentType || "unknown response"}: ${text
+            .replace(/\s+/g, " ")
+            .slice(0, 180)}`,
+        );
+      }
 
       if (!response.ok || result.error || !result.confirmationUrl) {
         throw new Error(result.error || "Shopify billing could not be started.");
       }
 
-      window.open(result.confirmationUrl, "_top");
+      const confirmationUrl = new URL(result.confirmationUrl);
+      const isShopifyBillingUrl =
+        confirmationUrl.hostname.endsWith(".shopify.com") ||
+        confirmationUrl.hostname === "shopify.com";
+
+      if (!isShopifyBillingUrl) {
+        throw new Error("Shopify returned an invalid billing confirmation URL.");
+      }
+
+      window.open(confirmationUrl.toString(), "_top");
     } catch (error) {
       setUpgradeState({
         loading: false,
