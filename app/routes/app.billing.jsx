@@ -1,4 +1,5 @@
 /* global globalThis:readonly */
+import { useState } from "react";
 import { redirect, useLoaderData, useSearchParams } from "react-router";
 import { authenticate, PRO_PLAN_NAME } from "../shopify.server";
 
@@ -18,12 +19,6 @@ function isBillingTestMode() {
   return serverProcess?.env.SHOPIFY_BILLING_TEST === "true";
 }
 
-function getShopifyApiKey() {
-  const serverProcess = globalThis.process;
-
-  return serverProcess?.env.SHOPIFY_API_KEY || "";
-}
-
 async function getBillingStatus(billing) {
   const isTest = isBillingTestMode();
   const billingCheck = await billing.check({
@@ -37,34 +32,6 @@ async function getBillingStatus(billing) {
     hasProPlan: Boolean(activeSubscription),
     activeSubscription,
   };
-}
-
-function topRedirectResponse(url) {
-  const safeUrl = JSON.stringify(url);
-  const safeApiKey = String(getShopifyApiKey()).replace(/"/g, "&quot;");
-
-  return new Response(
-    `<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="referrer" content="origin" />
-    <script data-api-key="${safeApiKey}" src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
-    <script>
-      window.open(${safeUrl}, "_top");
-    </script>
-  </head>
-  <body>
-    <p>Redirecting to Shopify billing...</p>
-    <p><a href=${safeUrl} target="_top">Continue to Shopify billing</a></p>
-  </body>
-</html>`,
-    {
-      headers: {
-        "Content-Type": "text/html; charset=utf-8",
-      },
-    },
-  );
 }
 
 async function createProSubscription(admin) {
@@ -162,10 +129,10 @@ export async function action({ request }) {
     const { confirmationUrl, error } = await createProSubscription(admin);
 
     if (error) {
-      return redirect(`/app/billing?status=error&message=${encodeURIComponent(error)}`);
+      return Response.json({ error }, { status: 422 });
     }
 
-    return topRedirectResponse(confirmationUrl);
+    return Response.json({ confirmationUrl });
   }
 
   if (intent === "downgrade") {
@@ -190,6 +157,36 @@ export default function BillingPage() {
   const [searchParams] = useSearchParams();
   const status = searchParams.get("status");
   const message = searchParams.get("message");
+  const [upgradeState, setUpgradeState] = useState({
+    loading: false,
+    error: "",
+  });
+
+  async function handleUpgrade() {
+    setUpgradeState({ loading: true, error: "" });
+
+    try {
+      const body = new FormData();
+      body.set("intent", "upgrade");
+
+      const response = await fetch(billingAction, {
+        method: "POST",
+        body,
+      });
+      const result = await response.json();
+
+      if (!response.ok || result.error || !result.confirmationUrl) {
+        throw new Error(result.error || "Shopify billing could not be started.");
+      }
+
+      window.open(result.confirmationUrl, "_top");
+    } catch (error) {
+      setUpgradeState({
+        loading: false,
+        error: error.message || "Shopify billing could not be started.",
+      });
+    }
+  }
 
   return (
     <main style={styles.page}>
@@ -214,6 +211,10 @@ export default function BillingPage() {
         <div style={styles.errorBox}>
           {message || "Shopify billing could not be started. Please try again."}
         </div>
+      ) : null}
+
+      {upgradeState.error ? (
+        <div style={styles.errorBox}>{upgradeState.error}</div>
       ) : null}
 
       <section style={styles.grid}>
@@ -255,12 +256,14 @@ export default function BillingPage() {
           {hasProPlan ? (
             <p style={styles.activeLabel}>Active</p>
           ) : (
-            <form method="post" action={billingAction}>
-              <input type="hidden" name="intent" value="upgrade" />
-              <button type="submit" style={styles.primaryButton}>
-                Start 7-Day Free Trial
-              </button>
-            </form>
+            <button
+              type="button"
+              style={styles.primaryButton}
+              onClick={handleUpgrade}
+              disabled={upgradeState.loading}
+            >
+              {upgradeState.loading ? "Opening Shopify billing..." : "Start 7-Day Free Trial"}
+            </button>
           )}
         </article>
       </section>
