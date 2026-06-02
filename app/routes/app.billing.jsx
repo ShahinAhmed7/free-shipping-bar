@@ -113,10 +113,13 @@ export default function BillingPage() {
       const confirmationUrl = new URL(result.confirmationUrl);
       const isShopifyBillingUrl =
         confirmationUrl.hostname.endsWith(".shopify.com") ||
-        confirmationUrl.hostname === "shopify.com";
+        confirmationUrl.hostname === "shopify.com" ||
+        confirmationUrl.hostname.endsWith(".myshopify.com");
 
       if (!isShopifyBillingUrl) {
-        throw new Error("Shopify returned an invalid billing confirmation URL.");
+        throw new Error(
+          `Shopify returned an invalid billing confirmation URL host: ${confirmationUrl.hostname}`,
+        );
       }
 
       window.open(confirmationUrl.toString(), "_top");
