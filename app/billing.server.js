@@ -17,7 +17,33 @@ export function isBillingTestMode() {
   return serverProcess?.env.SHOPIFY_BILLING_TEST === "true";
 }
 
+export async function isPartnerDevelopmentShop(admin) {
+  const response = await admin.graphql(
+    `#graphql
+      query ShopBillingPlan {
+        shop {
+          plan {
+            partnerDevelopment
+          }
+        }
+      }
+    `,
+  );
+  const payload = await response.json();
+
+  return payload.data?.shop?.plan?.partnerDevelopment === true;
+}
+
+export async function shouldUseTestBilling(admin) {
+  if (isBillingTestMode()) {
+    return true;
+  }
+
+  return isPartnerDevelopmentShop(admin);
+}
+
 export async function createProSubscription(admin) {
+  const isTest = await shouldUseTestBilling(admin);
   const response = await admin.graphql(
     `#graphql
       mutation AppSubscriptionCreate(
@@ -47,7 +73,7 @@ export async function createProSubscription(admin) {
       variables: {
         name: PRO_PLAN_NAME,
         returnUrl: `${getAppUrl()}/app/billing-success`,
-        test: isBillingTestMode(),
+        test: isTest,
         trialDays: 7,
         lineItems: [
           {

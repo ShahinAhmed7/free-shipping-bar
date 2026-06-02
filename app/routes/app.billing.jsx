@@ -1,17 +1,10 @@
-/* global globalThis:readonly */
 import { useState } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { redirect, useLoaderData, useSearchParams } from "react-router";
 import { authenticate, PRO_PLAN_NAME } from "../shopify.server";
+import { shouldUseTestBilling } from "../billing.server";
 
-function isBillingTestMode() {
-  const serverProcess = globalThis.process;
-
-  return serverProcess?.env.SHOPIFY_BILLING_TEST === "true";
-}
-
-async function getBillingStatus(billing) {
-  const isTest = isBillingTestMode();
+async function getBillingStatus(billing, isTest) {
   const billingCheck = await billing.check({
     plans: [PRO_PLAN_NAME],
     isTest,
@@ -26,8 +19,9 @@ async function getBillingStatus(billing) {
 }
 
 export async function loader({ request }) {
-  const { billing, session } = await authenticate.admin(request);
-  const { hasProPlan, activeSubscription } = await getBillingStatus(billing);
+  const { admin, billing, session } = await authenticate.admin(request);
+  const isTest = await shouldUseTestBilling(admin);
+  const { hasProPlan, activeSubscription } = await getBillingStatus(billing, isTest);
   const billingActionUrl = new URL(request.url);
 
   billingActionUrl.searchParams.set("shop", session.shop);
@@ -37,23 +31,24 @@ export async function loader({ request }) {
     planName: hasProPlan ? PRO_PLAN_NAME : "Free Plan",
     hasProPlan,
     subscriptionId: activeSubscription?.id || null,
-    isTest: isBillingTestMode(),
+    isTest,
     billingAction: `${billingActionUrl.pathname}${billingActionUrl.search}`,
   };
 }
 
 export async function action({ request }) {
-  const { billing } = await authenticate.admin(request);
+  const { admin, billing } = await authenticate.admin(request);
   const formData = await request.formData();
   const intent = formData.get("intent");
 
   if (intent === "downgrade") {
-    const { activeSubscription } = await getBillingStatus(billing);
+    const isTest = await shouldUseTestBilling(admin);
+    const { activeSubscription } = await getBillingStatus(billing, isTest);
 
     if (activeSubscription?.id) {
       await billing.cancel({
         subscriptionId: activeSubscription.id,
-        isTest: isBillingTestMode(),
+        isTest,
         prorate: true,
       });
     }
