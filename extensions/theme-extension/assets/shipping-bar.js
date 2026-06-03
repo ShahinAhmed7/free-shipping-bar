@@ -43,7 +43,10 @@
 
   function loadSettings() {
     fetch('/apps/free-shipping-bar/api/settings')
-      .then(function(res) { return res.json(); })
+      .then(function(res) {
+        if (!res.ok) throw new Error('Settings request failed');
+        return res.json();
+      })
       .then(function(settings) { initShippingBar(settings); })
       .catch(function() { initShippingBar({}); });
   }

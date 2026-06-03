@@ -32,3 +32,8 @@ redirect_urls = [
   "https://free-shipping-bar-production-ffdd.up.railway.app/auth/callback",
   "https://free-shipping-bar-production-ffdd.up.railway.app/auth/shopify/callback"
 ]
+
+[app_proxy]
+url = "https://free-shipping-bar-production-ffdd.up.railway.app/api/settings"
+subpath = "free-shipping-bar"
+prefix = "apps"
