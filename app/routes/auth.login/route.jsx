@@ -63,8 +63,9 @@ export default function Auth() {
 
     if (!normalizedShop || !apiKey) return;
 
-    event.preventDefault();
-    window.top.location.href = shopifyInstallUrl(normalizedShop, apiKey);
+    event.currentTarget.action = shopifyInstallUrl(normalizedShop, apiKey);
+    event.currentTarget.method = "get";
+    event.currentTarget.target = "_top";
   };
 
   return (
