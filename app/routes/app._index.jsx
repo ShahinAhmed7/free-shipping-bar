@@ -74,13 +74,32 @@ export default function SettingsPage() {
   const [successMessage, setSuccessMessage] = useState(data.successMessage);
   const [barColor, setBarColor] = useState(data.barColor);
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     const form = e.currentTarget;
     const formData = new FormData(form);
-    fetch(form.action || window.location.href, { method: "POST", body: formData })
-      .then(() => shopify.toast.show("Settings saved"))
-      .catch(() => shopify.toast.show("Failed to save settings", { isError: true }));
+
+    try {
+      await shopify.ready;
+
+      const token = await shopify.idToken();
+      const response = await fetch(form.action || window.location.href, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        credentials: "include",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Settings could not be saved.");
+      }
+
+      shopify.toast.show("Settings saved");
+    } catch {
+      shopify.toast.show("Failed to save settings", { isError: true });
+    }
   }
 
   return (
