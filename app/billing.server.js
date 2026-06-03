@@ -125,6 +125,29 @@ export async function getProSubscription(billing, admin) {
   };
 }
 
+export async function hasActiveProPlan(admin) {
+  const response = await admin.graphql(
+    `#graphql
+      query ActiveAppSubscriptions {
+        currentAppInstallation {
+          activeSubscriptions {
+            name
+            status
+          }
+        }
+      }
+    `,
+  );
+  const payload = await response.json();
+  const activeSubscriptions =
+    payload.data?.currentAppInstallation?.activeSubscriptions || [];
+
+  return activeSubscriptions.some(
+    (subscription) =>
+      subscription.name === PRO_PLAN_NAME && subscription.status === "ACTIVE",
+  );
+}
+
 export async function cancelProSubscription(billing, admin) {
   const { activeSubscription, isTest } = await getProSubscription(billing, admin);
 

@@ -1,4 +1,5 @@
-import { authenticate } from "../shopify.server";
+import { authenticate, unauthenticated } from "../shopify.server";
+import { hasActiveProPlan } from "../billing.server";
 import prisma from "../db.server";
 
 const DEFAULTS = {
@@ -16,12 +17,20 @@ export const loader = async ({ request }) => {
 
   if (shop) {
     const record = await prisma.shopSettings.findUnique({ where: { shop } });
-    if (record) {
+    const { admin } = await unauthenticated.admin(shop);
+    const hasProPlan = await hasActiveProPlan(admin);
+
+    if (record && hasProPlan) {
       settings = {
         threshold: record.threshold,
         progressMessage: record.progressMessage,
         successMessage: record.successMessage,
         barColor: record.barColor,
+      };
+    } else if (record) {
+      settings = {
+        ...DEFAULTS,
+        threshold: record.threshold,
       };
     }
   }

@@ -3,31 +3,54 @@ import { useLoaderData, useNavigation } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
+import { hasActiveProPlan } from "../billing.server";
 import prisma from "../db.server";
 
+const DEFAULT_SETTINGS = {
+  threshold: 7500,
+  progressMessage: "Add {amount} more for free shipping!",
+  successMessage: "You've unlocked free shipping! 🎉",
+  barColor: "#1D9E75",
+};
+
 export const loader = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
   const shop = session.shop;
+  const hasProPlan = await hasActiveProPlan(admin);
 
   const settings = await prisma.shopSettings.findUnique({ where: { shop } });
 
   return {
-    threshold: ((settings?.threshold ?? 7500) / 100).toString(),
-    progressMessage: settings?.progressMessage ?? "Add {amount} more for free shipping!",
-    successMessage: settings?.successMessage ?? "You've unlocked free shipping! 🎉",
-    barColor: settings?.barColor ?? "#1D9E75",
+    hasProPlan,
+    threshold: ((settings?.threshold ?? DEFAULT_SETTINGS.threshold) / 100).toString(),
+    progressMessage: hasProPlan
+      ? settings?.progressMessage ?? DEFAULT_SETTINGS.progressMessage
+      : DEFAULT_SETTINGS.progressMessage,
+    successMessage: hasProPlan
+      ? settings?.successMessage ?? DEFAULT_SETTINGS.successMessage
+      : DEFAULT_SETTINGS.successMessage,
+    barColor: hasProPlan
+      ? settings?.barColor ?? DEFAULT_SETTINGS.barColor
+      : DEFAULT_SETTINGS.barColor,
   };
 };
 
 export const action = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
   const shop = session.shop;
+  const hasProPlan = await hasActiveProPlan(admin);
 
   const formData = await request.formData();
   const threshold = Math.round((parseFloat(formData.get("threshold")) || 75) * 100);
-  const progressMessage = formData.get("progressMessage") || "Add {amount} more for free shipping!";
-  const successMessage = formData.get("successMessage") || "You've unlocked free shipping! 🎉";
-  const barColor = formData.get("barColor") || "#1D9E75";
+  const progressMessage = hasProPlan
+    ? formData.get("progressMessage") || DEFAULT_SETTINGS.progressMessage
+    : DEFAULT_SETTINGS.progressMessage;
+  const successMessage = hasProPlan
+    ? formData.get("successMessage") || DEFAULT_SETTINGS.successMessage
+    : DEFAULT_SETTINGS.successMessage;
+  const barColor = hasProPlan
+    ? formData.get("barColor") || DEFAULT_SETTINGS.barColor
+    : DEFAULT_SETTINGS.barColor;
 
   await prisma.shopSettings.upsert({
     where: { shop },
@@ -44,6 +67,7 @@ export default function SettingsPage() {
   const shopify = useAppBridge();
 
   const isSaving = navigation.state === "submitting";
+  const hasProPlan = data.hasProPlan;
 
   const [threshold, setThreshold] = useState(String(data.threshold));
   const [progressMessage, setProgressMessage] = useState(data.progressMessage);
@@ -64,38 +88,58 @@ export default function SettingsPage() {
       <form method="post" onSubmit={handleSubmit}>
         <s-section heading="Bar settings">
           <s-stack direction="block" gap="base">
+            {!hasProPlan ? (
+              <s-banner tone="info">
+                Free plan includes one threshold with default styling. Upgrade to Pro to unlock custom messages, emoji celebrations, and colors.
+              </s-banner>
+            ) : null}
 
             <s-text-field
-              label="Free shipping threshold (cents)"
+              label="Free shipping threshold"
               name="threshold"
               type="number"
               value={threshold}
               prefix="$"
-              helpText="Customers get free shipping when cart reaches this amount. 7500 = $75.00"
+              helpText="Customers get free shipping when cart reaches this amount."
               onInput={(e) => setThreshold(e.target.value)}
             />
 
             <s-text-field
-              label="Progress message"
+              label="Progress message (Pro)"
               name="progressMessage"
               value={progressMessage}
-              helpText='Use {amount} as a placeholder. E.g. "Add {amount} more for free shipping!"'
+              disabled={!hasProPlan}
+              helpText={
+                hasProPlan
+                  ? 'Use {amount} as a placeholder. E.g. "Add {amount} more for free shipping!"'
+                  : "Upgrade to Pro to customize progress text."
+              }
               onInput={(e) => setProgressMessage(e.target.value)}
             />
 
             <s-text-field
-              label="Success message"
+              label="Success message (Pro)"
               name="successMessage"
               value={successMessage}
-              helpText="Shown when the customer has reached the free shipping threshold."
+              disabled={!hasProPlan}
+              helpText={
+                hasProPlan
+                  ? "Shown when the customer has reached the free shipping threshold."
+                  : "Upgrade to Pro to customize the success message and emoji celebration."
+              }
               onInput={(e) => setSuccessMessage(e.target.value)}
             />
 
             <s-text-field
-              label="Bar color"
+              label="Bar color (Pro)"
               name="barColor"
               value={barColor}
-              helpText="Hex color code for the progress bar fill."
+              disabled={!hasProPlan}
+              helpText={
+                hasProPlan
+                  ? "Hex color code for the progress bar fill."
+                  : "Upgrade to Pro to customize the progress bar color."
+              }
               onInput={(e) => setBarColor(e.target.value)}
             />
 
