@@ -46,7 +46,7 @@ export default function Auth() {
       return;
     }
 
-    const target = `/app?shop=${encodeURIComponent(normalizedShop)}`;
+    const target = `${window.location.origin}/app?shop=${encodeURIComponent(normalizedShop)}`;
 
     if (window.top) {
       window.top.location.href = target;
