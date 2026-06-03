@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLoaderData, useNavigation } from "react-router";
+import { useLoaderData } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
@@ -63,27 +63,30 @@ export const action = async ({ request }) => {
 
 export default function SettingsPage() {
   const data = useLoaderData();
-  const navigation = useNavigation();
   const shopify = useAppBridge();
 
-  const isSaving = navigation.state === "submitting";
   const hasProPlan = data.hasProPlan;
 
   const [threshold, setThreshold] = useState(String(data.threshold));
   const [progressMessage, setProgressMessage] = useState(data.progressMessage);
   const [successMessage, setSuccessMessage] = useState(data.successMessage);
   const [barColor, setBarColor] = useState(data.barColor);
+  const [isSaving, setIsSaving] = useState(false);
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const formData = new FormData(form);
+  async function handleSave() {
+    const formData = new FormData();
+    formData.set("threshold", threshold);
+    formData.set("progressMessage", progressMessage);
+    formData.set("successMessage", successMessage);
+    formData.set("barColor", barColor);
+
+    setIsSaving(true);
 
     try {
       await shopify.ready;
 
       const token = await shopify.idToken();
-      const response = await fetch(form.action || window.location.href, {
+      const response = await fetch(window.location.href, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -99,82 +102,82 @@ export default function SettingsPage() {
       shopify.toast.show("Settings saved");
     } catch {
       shopify.toast.show("Failed to save settings", { isError: true });
+    } finally {
+      setIsSaving(false);
     }
   }
 
   return (
     <s-page heading="Free Shipping Bar Settings">
-      <form method="post" onSubmit={handleSubmit}>
-        <s-section heading="Bar settings">
-          <s-stack direction="block" gap="base">
-            {!hasProPlan ? (
-              <s-banner tone="info">
-                Free plan includes one threshold with default styling. Upgrade to Pro to unlock custom messages, emoji celebrations, and colors.
-              </s-banner>
-            ) : null}
+      <s-section heading="Bar settings">
+        <s-stack direction="block" gap="base">
+          {!hasProPlan ? (
+            <s-banner tone="info">
+              Free plan includes one threshold with default styling. Upgrade to Pro to unlock custom messages, emoji celebrations, and colors.
+            </s-banner>
+          ) : null}
 
-            <s-text-field
-              label="Free shipping threshold"
-              name="threshold"
-              type="number"
-              value={threshold}
-              prefix="$"
-              helpText="Customers get free shipping when cart reaches this amount."
-              onInput={(e) => setThreshold(e.target.value)}
-            />
+          <s-text-field
+            label="Free shipping threshold"
+            name="threshold"
+            type="number"
+            value={threshold}
+            prefix="$"
+            helpText="Customers get free shipping when cart reaches this amount."
+            onInput={(e) => setThreshold(e.target.value)}
+          />
 
-            <s-text-field
-              label="Progress message (Pro)"
-              name="progressMessage"
-              value={progressMessage}
-              disabled={!hasProPlan}
-              helpText={
-                hasProPlan
-                  ? 'Use {amount} as a placeholder. E.g. "Add {amount} more for free shipping!"'
-                  : "Upgrade to Pro to customize progress text."
-              }
-              onInput={(e) => setProgressMessage(e.target.value)}
-            />
+          <s-text-field
+            label="Progress message (Pro)"
+            name="progressMessage"
+            value={progressMessage}
+            disabled={!hasProPlan}
+            helpText={
+              hasProPlan
+                ? 'Use {amount} as a placeholder. E.g. "Add {amount} more for free shipping!"'
+                : "Upgrade to Pro to customize progress text."
+            }
+            onInput={(e) => setProgressMessage(e.target.value)}
+          />
 
-            <s-text-field
-              label="Success message (Pro)"
-              name="successMessage"
-              value={successMessage}
-              disabled={!hasProPlan}
-              helpText={
-                hasProPlan
-                  ? "Shown when the customer has reached the free shipping threshold."
-                  : "Upgrade to Pro to customize the success message and emoji celebration."
-              }
-              onInput={(e) => setSuccessMessage(e.target.value)}
-            />
+          <s-text-field
+            label="Success message (Pro)"
+            name="successMessage"
+            value={successMessage}
+            disabled={!hasProPlan}
+            helpText={
+              hasProPlan
+                ? "Shown when the customer has reached the free shipping threshold."
+                : "Upgrade to Pro to customize the success message and emoji celebration."
+            }
+            onInput={(e) => setSuccessMessage(e.target.value)}
+          />
 
-            <s-text-field
-              label="Bar color (Pro)"
-              name="barColor"
-              value={barColor}
-              disabled={!hasProPlan}
-              helpText={
-                hasProPlan
-                  ? "Hex color code for the progress bar fill."
-                  : "Upgrade to Pro to customize the progress bar color."
-              }
-              onInput={(e) => setBarColor(e.target.value)}
-            />
+          <s-text-field
+            label="Bar color (Pro)"
+            name="barColor"
+            value={barColor}
+            disabled={!hasProPlan}
+            helpText={
+              hasProPlan
+                ? "Hex color code for the progress bar fill."
+                : "Upgrade to Pro to customize the progress bar color."
+            }
+            onInput={(e) => setBarColor(e.target.value)}
+          />
 
-          </s-stack>
-        </s-section>
+        </s-stack>
+      </s-section>
 
-        <s-page-actions>
-          <s-button
-            slot="primary-action"
-            submit
-            {...(isSaving ? { loading: true } : {})}
-          >
-            Save
-          </s-button>
-        </s-page-actions>
-      </form>
+      <s-page-actions>
+        <s-button
+          slot="primary-action"
+          onClick={handleSave}
+          {...(isSaving ? { loading: true } : {})}
+        >
+          Save
+        </s-button>
+      </s-page-actions>
     </s-page>
   );
 }
