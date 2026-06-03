@@ -91,6 +91,7 @@ export default function Auth() {
             />
           </label>
           {errors.shop ? <p style={styles.error}>{errors.shop}</p> : null}
+          <input type="hidden" name="client_id" value={apiKey} />
           <button type="submit" style={styles.button}>
             Log in
           </button>
