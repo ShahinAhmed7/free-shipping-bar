@@ -9,8 +9,11 @@ import {
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import prisma from "./db.server";
 
+const TOML_CLIENT_ID = "7fbeb8be68363e7381c350ad7b421afe";
+const envApiKey = process.env.SHOPIFY_API_KEY;
+
 export const SHOPIFY_API_KEY =
-  process.env.SHOPIFY_API_KEY || "7fbeb8be68363e7381c350ad7b421afe";
+  envApiKey && envApiKey !== "YOUR_API_KEY" ? envApiKey : TOML_CLIENT_ID;
 export const PRO_PLAN_NAME = "Pro Plan";
 
 export const FREE_PLAN = {
