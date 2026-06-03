@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useAppBridge } from "@shopify/app-bridge-react";
-import { redirect, useLoaderData, useSearchParams } from "react-router";
+import { redirect, useLoaderData, useNavigate, useSearchParams } from "react-router";
 import { authenticate, PRO_PLAN_NAME } from "../shopify.server";
-import { shouldUseTestBilling } from "../billing.server";
+import { getProSubscription, shouldUseTestBilling } from "../billing.server";
 
 async function getBillingStatus(billing, isTest) {
   const billingCheck = await billing.check({
@@ -42,8 +42,7 @@ export async function action({ request }) {
   const intent = formData.get("intent");
 
   if (intent === "downgrade") {
-    const isTest = await shouldUseTestBilling(admin);
-    const { activeSubscription } = await getBillingStatus(billing, isTest);
+    const { activeSubscription, isTest } = await getProSubscription(billing, admin);
 
     if (activeSubscription?.id) {
       await billing.cancel({
@@ -60,8 +59,9 @@ export async function action({ request }) {
 }
 
 export default function BillingPage() {
-  const { planName, hasProPlan, subscriptionId, isTest, billingAction } = useLoaderData();
+  const { planName, hasProPlan, subscriptionId, isTest } = useLoaderData();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const shopify = useAppBridge();
   const status = searchParams.get("status");
   const message = searchParams.get("message");
@@ -69,40 +69,54 @@ export default function BillingPage() {
     loading: false,
     error: "",
   });
+  const [downgradeState, setDowngradeState] = useState({
+    loading: false,
+    error: "",
+  });
+
+  async function postBillingIntent(intent) {
+    await shopify.ready;
+
+    const body = new FormData();
+    body.set("intent", intent);
+    const token = await shopify.idToken();
+
+    const response = await fetch("/api/billing", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      credentials: "include",
+      body,
+    });
+    const contentType = response.headers.get("content-type") || "";
+    const result = contentType.includes("application/json") ? await response.json() : null;
+
+    if (!result) {
+      const text = await response.text();
+      throw new Error(
+        `Expected JSON from billing route, received ${contentType || "unknown response"}: ${text
+          .replace(/\s+/g, " ")
+          .slice(0, 180)}`,
+      );
+    }
+
+    if (!response.ok || result.error) {
+      throw new Error(result.error || "Shopify billing could not be updated.");
+    }
+
+    return result;
+  }
 
   async function handleUpgrade() {
     setUpgradeState({ loading: true, error: "" });
 
     try {
-      await shopify.ready;
+      const result = await postBillingIntent("upgrade");
 
-      const body = new FormData();
-      body.set("intent", "upgrade");
-      const token = await shopify.idToken();
-
-      const response = await fetch("/api/billing", {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        credentials: "include",
-        body,
-      });
-      const contentType = response.headers.get("content-type") || "";
-      const result = contentType.includes("application/json") ? await response.json() : null;
-
-      if (!result) {
-        const text = await response.text();
-        throw new Error(
-          `Expected JSON from billing route, received ${contentType || "unknown response"}: ${text
-            .replace(/\s+/g, " ")
-            .slice(0, 180)}`,
-        );
-      }
-
-      if (!response.ok || result.error || !result.confirmationUrl) {
-        throw new Error(result.error || "Shopify billing could not be started.");
+      if (!result.confirmationUrl) {
+        throw new Error("Shopify billing could not be started.");
       }
 
       const confirmationUrl = new URL(result.confirmationUrl);
@@ -122,6 +136,20 @@ export default function BillingPage() {
       setUpgradeState({
         loading: false,
         error: error.message || "Shopify billing could not be started.",
+      });
+    }
+  }
+
+  async function handleDowngrade() {
+    setDowngradeState({ loading: true, error: "" });
+
+    try {
+      await postBillingIntent("downgrade");
+      navigate("/app/billing?status=downgraded");
+    } catch (error) {
+      setDowngradeState({
+        loading: false,
+        error: error.message || "Shopify billing could not be updated.",
       });
     }
   }
@@ -155,6 +183,10 @@ export default function BillingPage() {
         <div style={styles.errorBox}>{upgradeState.error}</div>
       ) : null}
 
+      {downgradeState.error ? (
+        <div style={styles.errorBox}>{downgradeState.error}</div>
+      ) : null}
+
       <section style={styles.grid}>
         <article style={styles.card}>
           <div>
@@ -168,12 +200,14 @@ export default function BillingPage() {
           </div>
 
           {hasProPlan ? (
-            <form method="post" action={billingAction}>
-              <input type="hidden" name="intent" value="downgrade" />
-              <button type="submit" style={styles.secondaryButton}>
-                Downgrade to Free
-              </button>
-            </form>
+            <button
+              type="button"
+              style={styles.secondaryButton}
+              onClick={handleDowngrade}
+              disabled={downgradeState.loading}
+            >
+              {downgradeState.loading ? "Downgrading..." : "Downgrade to Free"}
+            </button>
           ) : (
             <p style={styles.activeLabel}>Active</p>
           )}

@@ -111,3 +111,32 @@ export async function createProSubscription(admin) {
     error: null,
   };
 }
+
+export async function getProSubscription(billing, admin) {
+  const isTest = await shouldUseTestBilling(admin);
+  const billingCheck = await billing.check({
+    plans: [PRO_PLAN_NAME],
+    isTest,
+  });
+
+  return {
+    activeSubscription: billingCheck.appSubscriptions?.[0] || null,
+    isTest,
+  };
+}
+
+export async function cancelProSubscription(billing, admin) {
+  const { activeSubscription, isTest } = await getProSubscription(billing, admin);
+
+  if (!activeSubscription?.id) {
+    return { cancelled: false };
+  }
+
+  await billing.cancel({
+    subscriptionId: activeSubscription.id,
+    isTest,
+    prorate: true,
+  });
+
+  return { cancelled: true };
+}
