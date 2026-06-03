@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Form, useLoaderData, useNavigation } from "react-router";
+import { useLoaderData, useNavigation } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
