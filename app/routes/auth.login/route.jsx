@@ -1,16 +1,30 @@
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { useState } from "react";
-import { Form, useActionData, useLoaderData } from "react-router";
+import { Form, redirect, useActionData, useLoaderData } from "react-router";
 import { login } from "../../shopify.server";
 import { loginErrorMessage } from "./error.server";
 
 export const loader = async ({ request }) => {
+  const url = new URL(request.url);
+  const shop = url.searchParams.get("shop");
+
+  if (shop) {
+    throw redirect(`/app?shop=${encodeURIComponent(shop)}`);
+  }
+
   const errors = loginErrorMessage(await login(request));
 
   return { errors };
 };
 
 export const action = async ({ request }) => {
+  const formData = await request.formData();
+  const shop = formData.get("shop");
+
+  if (typeof shop === "string" && shop.trim()) {
+    throw redirect(`/app?shop=${encodeURIComponent(shop.trim())}`);
+  }
+
   const errors = loginErrorMessage(await login(request));
 
   return {
