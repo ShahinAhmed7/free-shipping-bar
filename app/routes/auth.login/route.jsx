@@ -1,33 +1,83 @@
 import { useState } from "react";
-import { useActionData, useLoaderData } from "react-router";
-import { login } from "../../shopify.server";
+import { redirect, useLoaderData } from "react-router";
+import { LoginErrorType } from "@shopify/shopify-app-react-router/server";
+import { SHOPIFY_API_KEY } from "../../shopify.server";
 import { loginErrorMessage } from "./error.server";
 
-export const loader = async ({ request }) => {
-  const errors = loginErrorMessage(await login(request));
+const normalizeShop = (shop) => {
+  if (!shop) return null;
 
-  return { errors };
+  const shopWithoutProtocol = shop
+    .trim()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/$/, "");
+  const shopWithDomain = shopWithoutProtocol.includes(".")
+    ? shopWithoutProtocol
+    : `${shopWithoutProtocol}.myshopify.com`;
+  const validShop = /^[a-zA-Z0-9][a-zA-Z0-9-]*\.myshopify\.com$/.test(
+    shopWithDomain,
+  );
+
+  return validShop ? shopWithDomain.toLowerCase() : null;
 };
 
-export const action = async ({ request }) => {
-  const errors = loginErrorMessage(await login(request));
+const shopifyInstallUrl = (shop, apiKey) => {
+  const shopName = shop.replace(".myshopify.com", "");
+
+  return `https://admin.shopify.com/store/${shopName}/oauth/install?client_id=${apiKey}`;
+};
+
+export const loader = async ({ request }) => {
+  const url = new URL(request.url);
+  const apiKey = SHOPIFY_API_KEY;
+  const shop = url.searchParams.get("shop") || "";
+
+  if (shop) {
+    const normalizedShop = normalizeShop(shop);
+
+    if (!normalizedShop) {
+      return {
+        apiKey,
+        errors: loginErrorMessage({ shop: LoginErrorType.InvalidShop }),
+        shop,
+      };
+    }
+
+    throw redirect(shopifyInstallUrl(normalizedShop, apiKey));
+  }
 
   return {
-    errors,
+    apiKey,
+    errors: {},
+    shop: "",
   };
 };
 
 export default function Auth() {
   const loaderData = useLoaderData();
-  const actionData = useActionData();
-  const [shop, setShop] = useState("");
-  const { errors } = actionData || loaderData;
+  const [shop, setShop] = useState(loaderData.shop || "");
+  const { apiKey, errors } = loaderData;
+
+  const submitLogin = (event) => {
+    const normalizedShop = normalizeShop(shop);
+
+    if (!normalizedShop || !apiKey) return;
+
+    event.preventDefault();
+    window.top.location.href = shopifyInstallUrl(normalizedShop, apiKey);
+  };
 
   return (
     <main style={styles.page}>
       <section style={styles.card}>
         <h1 style={styles.heading}>Log in</h1>
-        <form action="/auth/login" method="post" target="_top" style={styles.form}>
+        <form
+          action="/auth/login"
+          method="get"
+          target="_top"
+          style={styles.form}
+          onSubmit={submitLogin}
+        >
           <label style={styles.label}>
             <span>Shop domain</span>
             <input
