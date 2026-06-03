@@ -1,29 +1,15 @@
 import { useState } from "react";
-import { redirect, useActionData, useLoaderData } from "react-router";
+import { useActionData, useLoaderData } from "react-router";
 import { login } from "../../shopify.server";
 import { loginErrorMessage } from "./error.server";
 
 export const loader = async ({ request }) => {
-  const url = new URL(request.url);
-  const shop = url.searchParams.get("shop");
-
-  if (shop) {
-    throw redirect(`/app?shop=${encodeURIComponent(shop)}`);
-  }
-
   const errors = loginErrorMessage(await login(request));
 
   return { errors };
 };
 
 export const action = async ({ request }) => {
-  const formData = await request.formData();
-  const shop = formData.get("shop");
-
-  if (typeof shop === "string" && shop.trim()) {
-    throw redirect(`/app?shop=${encodeURIComponent(shop.trim())}`);
-  }
-
   const errors = loginErrorMessage(await login(request));
 
   return {
@@ -37,30 +23,11 @@ export default function Auth() {
   const [shop, setShop] = useState("");
   const { errors } = actionData || loaderData;
 
-  function handleLogin(event) {
-    event.preventDefault();
-
-    const normalizedShop = shop.trim();
-
-    if (!normalizedShop) {
-      return;
-    }
-
-    const target = `${window.location.origin}/app?shop=${encodeURIComponent(normalizedShop)}`;
-
-    if (window.top) {
-      window.top.location.href = target;
-      return;
-    }
-
-    window.location.href = target;
-  }
-
   return (
     <main style={styles.page}>
       <section style={styles.card}>
         <h1 style={styles.heading}>Log in</h1>
-        <form method="post" style={styles.form} onSubmit={handleLogin}>
+        <form action="/auth/login" method="post" target="_top" style={styles.form}>
           <label style={styles.label}>
             <span>Shop domain</span>
             <input
