@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Form, redirect, useActionData, useLoaderData } from "react-router";
+import { redirect, useActionData, useLoaderData } from "react-router";
 import { login } from "../../shopify.server";
 import { loginErrorMessage } from "./error.server";
 
@@ -37,11 +37,30 @@ export default function Auth() {
   const [shop, setShop] = useState("");
   const { errors } = actionData || loaderData;
 
+  function handleLogin(event) {
+    event.preventDefault();
+
+    const normalizedShop = shop.trim();
+
+    if (!normalizedShop) {
+      return;
+    }
+
+    const target = `/app?shop=${encodeURIComponent(normalizedShop)}`;
+
+    if (window.top) {
+      window.top.location.href = target;
+      return;
+    }
+
+    window.location.href = target;
+  }
+
   return (
     <main style={styles.page}>
       <section style={styles.card}>
         <h1 style={styles.heading}>Log in</h1>
-        <Form method="post" style={styles.form}>
+        <form method="post" style={styles.form} onSubmit={handleLogin}>
           <label style={styles.label}>
             <span>Shop domain</span>
             <input
@@ -57,7 +76,7 @@ export default function Auth() {
           <button type="submit" style={styles.button}>
             Log in
           </button>
-        </Form>
+        </form>
       </section>
     </main>
   );
