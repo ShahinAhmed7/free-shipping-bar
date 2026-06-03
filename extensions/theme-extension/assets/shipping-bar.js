@@ -41,11 +41,26 @@
     document.addEventListener('cart:change', fetchCart);
   }
 
-  function loadSettings() {
-    fetch('/apps/free-shipping-bar/api/settings')
+  function fetchSettings(url) {
+    return fetch(url)
       .then(function(res) {
         if (!res.ok) throw new Error('Settings request failed');
         return res.json();
+      });
+  }
+
+  function loadSettings() {
+    const bar = document.querySelector('.shipping-bar');
+    const settingsUrl = bar && bar.dataset.settingsUrl;
+    const shop = bar && bar.dataset.shop;
+    const fallbackUrl = settingsUrl && shop
+      ? settingsUrl + '?shop=' + encodeURIComponent(shop)
+      : null;
+
+    fetchSettings('/apps/free-shipping-bar/api/settings')
+      .catch(function() {
+        if (!fallbackUrl) throw new Error('No settings fallback URL');
+        return fetchSettings(fallbackUrl);
       })
       .then(function(settings) { initShippingBar(settings); })
       .catch(function() { initShippingBar({}); });

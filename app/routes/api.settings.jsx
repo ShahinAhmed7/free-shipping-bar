@@ -9,38 +9,59 @@ const DEFAULTS = {
   barColor: "#1D9E75",
 };
 
-export const loader = async ({ request }) => {
-  const { session } = await authenticate.public.appProxy(request);
-  const shop = session?.shop;
-
-  let settings = DEFAULTS;
-
-  if (shop) {
-    const record = await prisma.shopSettings.findUnique({ where: { shop } });
-    const { admin } = await unauthenticated.admin(shop);
-    const hasProPlan = await hasActiveProPlan(admin);
-
-    if (record && hasProPlan) {
-      settings = {
-        threshold: record.threshold,
-        progressMessage: record.progressMessage,
-        successMessage: record.successMessage,
-        barColor: record.barColor,
-      };
-    } else if (record) {
-      settings = {
-        ...DEFAULTS,
-        threshold: record.threshold,
-      };
-    }
-  }
-
+function jsonSettings(settings) {
   return new Response(JSON.stringify(settings), {
     headers: {
       "Content-Type": "application/json",
       "Access-Control-Allow-Origin": "*",
     },
   });
+}
+
+function isValidShopDomain(shop) {
+  return typeof shop === "string" && /^[a-zA-Z0-9][a-zA-Z0-9-]*\.myshopify\.com$/.test(shop);
+}
+
+async function getSettingsForShop(shop) {
+  if (!shop) return DEFAULTS;
+
+  const record = await prisma.shopSettings.findUnique({ where: { shop } });
+  const { admin } = await unauthenticated.admin(shop);
+  const hasProPlan = await hasActiveProPlan(admin);
+
+  if (record && hasProPlan) {
+    return {
+      threshold: record.threshold,
+      progressMessage: record.progressMessage,
+      successMessage: record.successMessage,
+      barColor: record.barColor,
+    };
+  }
+
+  if (record) {
+    return {
+      ...DEFAULTS,
+      threshold: record.threshold,
+    };
+  }
+
+  return DEFAULTS;
+}
+
+export const loader = async ({ request }) => {
+  try {
+    const { session } = await authenticate.public.appProxy(request);
+    return jsonSettings(await getSettingsForShop(session?.shop));
+  } catch {
+    const url = new URL(request.url);
+    const shop = url.searchParams.get("shop");
+
+    if (!isValidShopDomain(shop)) {
+      return jsonSettings(DEFAULTS);
+    }
+
+    return jsonSettings(await getSettingsForShop(shop));
+  }
 };
 
 export const action = async ({ request }) => {
