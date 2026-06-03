@@ -86,17 +86,19 @@ export default function SettingsPage() {
       await shopify.ready;
 
       const token = await shopify.idToken();
-      const response = await fetch(window.location.href, {
+      const response = await fetch("/api/settings", {
         method: "POST",
         headers: {
+          Accept: "application/json",
           Authorization: `Bearer ${token}`,
         },
         credentials: "include",
         body: formData,
       });
+      const result = await response.json();
 
-      if (!response.ok) {
-        throw new Error("Settings could not be saved.");
+      if (!response.ok || result.error) {
+        throw new Error(result.error || "Settings could not be saved.");
       }
 
       shopify.toast.show("Settings saved");

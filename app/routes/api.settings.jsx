@@ -42,3 +42,29 @@ export const loader = async ({ request }) => {
     },
   });
 };
+
+export const action = async ({ request }) => {
+  const { admin, session } = await authenticate.admin(request);
+  const shop = session.shop;
+  const hasProPlan = await hasActiveProPlan(admin);
+
+  const formData = await request.formData();
+  const threshold = Math.round((parseFloat(formData.get("threshold")) || 75) * 100);
+  const progressMessage = hasProPlan
+    ? formData.get("progressMessage") || DEFAULTS.progressMessage
+    : DEFAULTS.progressMessage;
+  const successMessage = hasProPlan
+    ? formData.get("successMessage") || DEFAULTS.successMessage
+    : DEFAULTS.successMessage;
+  const barColor = hasProPlan
+    ? formData.get("barColor") || DEFAULTS.barColor
+    : DEFAULTS.barColor;
+
+  await prisma.shopSettings.upsert({
+    where: { shop },
+    update: { threshold, progressMessage, successMessage, barColor },
+    create: { shop, threshold, progressMessage, successMessage, barColor },
+  });
+
+  return Response.json({ ok: true });
+};
